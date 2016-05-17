@@ -1,0 +1,88 @@
+#!/usr/bin/perl
+
+open(IN, "units-by-year-sum");
+while (<IN>) {
+	chomp;
+	($year, $built) = split(/ /);
+	$net{$year} = $built;
+}
+
+open(IN, "housing-inventory");
+while (<IN>) {
+	chomp;
+	($year, $built, $demolished, $converted, $net, $price) = split(/ /);
+
+	# Scale 2BR median to overall median
+	if ($price ne "") {
+		$price = $price * 0.9498 - 28.38;
+		$price{$year} = $price;
+	}
+
+	$net{$year} = $net;
+}
+close(IN);
+
+open(IN, "medians");
+while (<IN>) {
+	chomp;
+	($year, $price, $count, $p95, $p05) = split(/ /);
+	$price{$year} = $price;
+	$p95{$year} = $p95;
+	$p05{$year} = $p05;
+}
+close(IN);
+
+$total = 379597;
+for ($year = 2014; $year >= 1900; $year--) {
+	$total{$year} = $total;
+	$total -= $net{$year};
+}
+
+open(IN, "employment/employment");
+while (<IN>) {
+	chomp;
+	($year, $employment, $payroll) = split(/ /);
+	$employment{$year} = $employment;
+	$payroll{$year} = $payroll;
+}
+close(IN);
+
+open(IN, "employment/employment-sc");
+while (<IN>) {
+	chomp;
+	($year, $employment, $payroll) = split(/ /);
+	$employment_sc{$year} = $employment;
+	$payroll_sc{$year} = $payroll;
+}
+close(IN);
+
+open(IN, "cpi/cpi");
+while (<IN>) {
+	chomp;
+	($year, $cpi) = split(/ /);
+	$cpi{$year} = $cpi / 100;
+}
+close(IN);
+
+for ($year = 1906; $year <= 2016; $year++) {
+	if ($price{$year - 1} != 0 && $cpi{$year} != 0) {
+		$priced = ($price{$year} / $cpi{$year}) / ($price{$year - 1} / $cpi{$year - 1}) - 1;
+	} else {
+		$priced = "";
+	}
+	if ($employment{$year} != 0 && $employment{$year - 1} != 0 && $cpi{$year - 1} != 0) {
+		$employmentd = $employment{$year} / $employment{$year - 1} - 1;
+		$waged = ($payroll{$year} / $cpi{$year}) / ($payroll{$year - 1} / $cpi{$year - 1}) - 1;
+		$pcwd = ($payroll{$year} / $cpi{$year} / $employment{$year}) / ($payroll{$year - 1} / $employment{$year - 1} / $cpi{$year - 1}) - 1;
+	} else {
+		$employmentd = "";
+		$waged = "";
+	}
+	if ($total{$year - 1} != 0) {
+		$housed = $total{$year} / $total{$year - 1} - 1;
+	} else {
+		$housed = "";
+	}
+
+	print "$year $price{$year}, $total{$year}, $net{$year}, $employment{$year}, $payroll{$year}, $cpi{$year}, $p95{$year}, $p05{$year}, $employment_sc{$year}, $payroll_sc{$year}, $priced, $employmentd, $waged, $housed, $pcwd\n";
+}
